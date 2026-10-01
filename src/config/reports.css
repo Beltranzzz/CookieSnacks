@@ -1,0 +1,11 @@
+.stats5 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 14px; }
+.stats5 .wide { grid-column: 1 / -1; }
+@media (min-width: 900px) { .stats5 { grid-template-columns: repeat(5, 1fr); } .stats5 .wide { grid-column: auto; } }
+.chart { position: relative; display: grid; gap: 3px; height: 170px; margin-top: 14px; }
+.chart-zero { position: absolute; left: 0; right: 0; height: 1px; background: var(--line); }
+.bar-col { position: relative; background: transparent; padding: 0; height: 100%; border-radius: 8px; }
+.bar-col.picked { background: var(--cream); }
+.bar { position: absolute; left: 0; right: 0; margin: 0 auto; width: 72%; max-width: 36px; border-radius: 6px; }
+.chart-labels { display: grid; gap: 3px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.chart-labels span { display: flex; justify-content: center; white-space: nowrap; }
+.chart-info { text-align: center; color: var(--muted); margin: 10px 0; font-size: 14px; }

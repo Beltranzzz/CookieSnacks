@@ -1,0 +1,14 @@
+.prod-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
+.prod-add { padding: 0 20px; min-height: 48px; border-radius: 14px; background: var(--pink-deep); color: #fff; font-weight: 800; font-size: 16px; }
+.prod-list { display: grid; gap: 10px; }
+@media (min-width: 900px) { .prod-list { grid-template-columns: 1fr 1fr; } }
+.prod { display: flex; gap: 12px; align-items: flex-start; }
+.prod.off { opacity: 0.6; }
+.prod-body { flex: 1; min-width: 0; }
+.thumb { width: 64px; height: 64px; border-radius: 16px; background: var(--pink-soft); display: flex; align-items: center; justify-content: center; font-size: 30px; flex: none; overflow: hidden; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--sky-soft); color: var(--sky-deep); font-weight: 700; margin-left: 8px; }
+.picker { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+.picker .chip { white-space: nowrap; flex: none; }
+.photo-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.file-btn { display: inline-flex; align-items: center; cursor: pointer; }

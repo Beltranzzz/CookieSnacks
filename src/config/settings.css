@@ -1,0 +1,4 @@
+.edit-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+.edit-row .mini { min-width: 48px; }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--line); vertical-align: -2px; }
+.restore-box { margin-top: 12px; background: var(--cream); box-shadow: none; border: 2px solid var(--line); }

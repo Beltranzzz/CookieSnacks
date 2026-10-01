@@ -1,0 +1,18 @@
+.cal-layout { display: grid; gap: 14px; margin-top: 14px; }
+@media (min-width: 900px) { .cal-layout { grid-template-columns: 380px 1fr; align-items: start; } }
+.cal-head, .day-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.cal-title, .day-title { text-transform: capitalize; text-align: center; flex: 1; }
+.cal-head .mini { width: 48px; padding: 0; font-size: 22px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-week { text-align: center; color: var(--muted); font-size: 13px; font-weight: 700; padding: 4px 0; }
+.cal-day { position: relative; aspect-ratio: 1; min-height: 44px; border-radius: 14px; background: var(--cream); font-size: 16px; font-weight: 600;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+.cal-day.today { outline: 2px solid var(--sky-deep); outline-offset: -2px; }
+.cal-day.sel { background: var(--pink-deep); color: #fff; }
+.dots { display: flex; gap: 3px; height: 6px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; display: block; }
+.dot.v { background: var(--sky-deep); } .dot.g { background: var(--pink-deep); }
+.cal-day.sel .dot.v { background: var(--sky); } .cal-day.sel .dot.g { background: var(--pink); }
+.cal-today { width: 100%; margin-top: 12px; }
+.day-nav .mini { padding: 0 12px; font-size: 14px; }
+.day-nav { margin-bottom: 12px; }
