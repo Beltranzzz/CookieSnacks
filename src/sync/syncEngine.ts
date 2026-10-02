@@ -1,7 +1,7 @@
 import type { Table } from 'dexie';
 import {
-  collection, doc, onSnapshot, writeBatch,
-  type DocumentData, type DocumentReference, type Unsubscribe,
+  collection, doc, onSnapshot, query, serverTimestamp, Timestamp, where, writeBatch,
+  type DocumentData, type DocumentReference, type Query, type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../data/db';
 import type { Settings } from '../domain/settings';
@@ -14,6 +14,7 @@ export interface SyncStatus { state: 'idle' | 'syncing' | 'offline' | 'error'; l
 const NAMES = ['sales', 'expenses', 'products'] as const;
 type Name = (typeof NAMES)[number];
 const TOTAL = NAMES.length + 1; // 3 colecciones + configuración
+const MARGIN_MS = 5000; // margen de seguridad al guardar la marca de "lo último que bajé"
 
 const tableOf = (n: Name) =>
   (n === 'sales' ? db.sales : n === 'expenses' ? db.expenses : db.products) as unknown as Table<Rec, string>;
@@ -44,12 +45,16 @@ async function applyRemote(table: Table<Rec, string>, docs: Rec[]) {
 // Sincronización local-first: la app siempre lee y escribe en el dispositivo (Dexie);
 // este motor sube los cambios locales a Firestore y baja los cambios de los otros dispositivos.
 // Si un registro cambia en dos lugares, gana la edición más reciente (updatedAt).
+//
+// Consumo de datos: cada documento subido lleva `syncedAt` (hora del servidor). Después de la primera
+// descarga completa, cada dispositivo solo pide los documentos con syncedAt posterior a lo último que ya bajó.
 export function startSync(uid: string, onStatus: (s: SyncStatus) => void) {
   const f = firebase();
   if (!f) return { stop: () => {}, flushNow: () => {} };
   const fs = f.fs;
 
-  const cursorKey = `cookiesnacks.sync.cursor.${uid}`; // lo anterior a esta marca ya se subió
+  const pushKey = `cookiesnacks.sync.cursor.${uid}`; // lo anterior a esta marca ya se subió
+  const pullKey = (name: Name) => `cookiesnacks.sync.pull.${uid}.${name}`; // hora del servidor del último documento bajado
   const known = new Map<string, string>(); // versiones que ya existen en la nube
   const ready = new Set<string>();
   const unsubs: Unsubscribe[] = [];
@@ -77,7 +82,7 @@ export function startSync(uid: string, onStatus: (s: SyncStatus) => void) {
     flushing = true;
     emit({ state: 'syncing' });
     try {
-      const cursor = localStorage.getItem(cursorKey) ?? '';
+      const cursor = localStorage.getItem(pushKey) ?? '';
       const startedAt = new Date().toISOString();
       const ops: { ref: DocumentReference<DocumentData>; data: DocumentData; key: string; ver: string }[] = [];
 
@@ -99,13 +104,14 @@ export function startSync(uid: string, onStatus: (s: SyncStatus) => void) {
       for (let i = 0; i < ops.length; i += 400) {
         const chunk = ops.slice(i, i + 400);
         const batch = writeBatch(fs);
-        chunk.forEach((o) => batch.set(o.ref, o.data));
+        // syncedAt (hora del servidor) permite a los demás dispositivos bajar solo lo nuevo
+        chunk.forEach((o) => batch.set(o.ref, o.key === 'settings' ? o.data : { ...o.data, syncedAt: serverTimestamp() }));
         await withTimeout(batch.commit(), 20000);
         chunk.forEach((o) => known.set(o.key, o.ver));
       }
 
       // un segundo de margen para no perder cambios hechos en el mismo instante
-      localStorage.setItem(cursorKey, new Date(Date.parse(startedAt) - 1000).toISOString());
+      localStorage.setItem(pushKey, new Date(Date.parse(startedAt) - 1000).toISOString());
       emit({ state: 'idle', lastSyncAt: new Date().toISOString(), error: undefined });
     } catch (e) {
       emit({ state: 'error', error: friendly(e) });
@@ -121,14 +127,29 @@ export function startSync(uid: string, onStatus: (s: SyncStatus) => void) {
     if (ready.size === TOTAL) schedule(0);
   };
 
-  // Bajar cambios en tiempo real desde la nube
+  // Bajar cambios en tiempo real: la primera vez todo; después, solo lo posterior a la última marca
   for (const name of NAMES) {
+    const saved = Number(localStorage.getItem(pullKey(name)) ?? 0);
+    const col = collection(fs, 'users', uid, name);
+    const q: Query<DocumentData> = saved ? query(col, where('syncedAt', '>', Timestamp.fromMillis(saved))) : col;
+
     unsubs.push(onSnapshot(
-      collection(fs, 'users', uid, name),
+      q,
       async (snap) => {
-        const docs = snap.docChanges().filter((c) => c.type !== 'removed').map((c) => c.doc.data() as Rec);
+        const docs: Rec[] = [];
+        let maxSeen = 0;
+        for (const c of snap.docChanges()) {
+          if (c.type === 'removed') continue;
+          const { syncedAt, ...data } = c.doc.data() as Rec & { syncedAt?: Timestamp | null };
+          if (syncedAt) maxSeen = Math.max(maxSeen, syncedAt.toMillis()); // null = escritura propia aún pendiente
+          docs.push(data);
+        }
         docs.forEach((d) => known.set(`${name}/${d.id}`, d.updatedAt ?? ''));
         await applyRemote(tableOf(name), docs);
+        if (maxSeen) {
+          const current = Number(localStorage.getItem(pullKey(name)) ?? 0);
+          localStorage.setItem(pullKey(name), String(Math.max(current, maxSeen - MARGIN_MS)));
+        }
         markReady(name);
       },
       (err) => emit({ state: 'error', error: friendly(err) })
